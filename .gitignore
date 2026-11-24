@@ -22,3 +22,6 @@ venv/
 .cursorindexingignore
 **/VideoMAE2
 checkpoints/**
+
+# Local copy of the paper
+D4RT_paper.pdf

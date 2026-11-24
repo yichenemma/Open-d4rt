@@ -1,7 +1,7 @@
---extra-index-url=https://download.pytorch.org/whl/cu124
+--extra-index-url=https://download.pytorch.org/whl/cu128
 
-torch==2.6.0+cu124
-torchvision==0.21.0+cu124
+torch==2.7.1+cu128
+torchvision==0.22.1+cu128
 numpy==2.2.5
 PyYAML==6.0.3
 opencv-python-headless==4.13.0.92
@@ -11,3 +11,4 @@ matplotlib==3.10.8
 tqdm==4.67.3
 tensorboard==2.20.0
 lz4==4.4.5
+viser
