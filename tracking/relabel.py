@@ -18,8 +18,9 @@ Results go to RUN/relabel_motion_rank/ so the drift labels are kept.
 Labels are kept per window, and the stitched trajectories get a per-frame label from the
 window that supplies each frame (no majority vote).
 
-Usage: python tracking/relabel.py --run RUN_DIR --frames RGB_DIR --glob PATTERN (--thr T | --motion-rank PCT) [--no-video]
+Usage: python tracking/relabel.py --run RUN_DIR --frames RGB_DIR --glob PATTERN (--thr T | --motion-rank PCT) [--dynamic-only] [--no-video]
 Writes RUN_DIR/relabel/ (or relabel_motion_rank/): labels.npz, summary.json, trajectories_overlay.mp4/.gif
+(trajectories_overlay_dynamic.mp4/.gif with --dynamic-only)
 """
 from __future__ import annotations
 
@@ -39,12 +40,14 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--run", type=Path, required=True)
 ap.add_argument("--frames", type=Path, required=True)
 ap.add_argument("--glob", default="frame_*.png")
-ap.add_argument("--thr", type=float, default=None)
+ap.add_argument("--thr", "--drift", type=float, default=None, help="drift method: dynamic when drift > T")
 ap.add_argument("--motion-rank", "--motion_rank", type=float, default=None, metavar="PCT",
                 help="label the top (100-PCT)%% motion scores per window as dynamic (repo viewer heuristic)")
 ap.add_argument("--mad-k", type=float, default=None, help="per-window outlier threshold (lab: shaky camera)")
 ap.add_argument("--trim", type=float, default=0.6, help="share of tracks kept when fitting each frame")
 ap.add_argument("--fps", type=float, default=6.0)
+ap.add_argument("--dynamic-only", "--dynamic_only", action="store_true",
+                help="draw only dynamic tracks in the overlay video")
 ap.add_argument("--no-video", action="store_true")
 args = ap.parse_args()
 if (args.thr is None) == (args.motion_rank is None):
@@ -157,15 +160,19 @@ if not args.no_video:
     vw, vh = 960, int(round(960 * H / W)) // 2 * 2
     sc = np.array([vw / W, vh / H])
     STATIC, DYN, TRAIL = (60, 210, 255), (255, 70, 40), 15
-    writer = cv2.VideoWriter(str(OUT / "trajectories_overlay.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (vw, vh))
+    name = "trajectories_overlay_dynamic" if args.dynamic_only else "trajectories_overlay"
+    writer = cv2.VideoWriter(str(OUT / f"{name}.mp4"), cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (vw, vh))
     gif = []
     for t in range(F):
         img = cv2.resize(cv2.cvtColor(cv2.imread(str(files[frame_lo + t])), cv2.COLOR_BGR2RGB), (vw, vh))
         alive = np.flatnonzero(np.isfinite(uv[:, t, 0]))
-        for g in alive[np.argsort(dyn_pf[alive, t])]:  # draw dynamic tracks on top
+        shown = alive[dyn_pf[alive, t]] if args.dynamic_only else alive
+        for g in shown[np.argsort(dyn_pf[shown, t])]:  # draw dynamic tracks on top
             lo = max(0, t - TRAIL)
             pts, d = uv[g, lo:t + 1], dyn_pf[g, lo:t + 1]
             for i in range(1, len(pts)):
+                if args.dynamic_only and not d[i]:
+                    continue
                 if np.isfinite(pts[i - 1, 0]) and np.isfinite(pts[i, 0]):
                     cv2.line(img, tuple(np.rint(pts[i - 1] * sc).astype(int)), tuple(np.rint(pts[i] * sc).astype(int)),
                              DYN if d[i] else STATIC, 2 if d[i] else 1, cv2.LINE_AA)
@@ -173,11 +180,11 @@ if not args.no_video:
                            cv2.MARKER_CROSS if vis[g, t] else cv2.MARKER_TILTED_CROSS, 8, 1)
         cv2.rectangle(img, (0, 0), (vw, 24), (0, 0, 0), -1)
         cv2.putText(img, f"frame {frame_lo + t + 1}  tracks {len(alive)}  dynamic {int(dyn_pf[alive, t].sum())}"
-                    f"   blue=static  red=dynamic", (8, 17), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                    + ("   red=dynamic only" if args.dynamic_only else "   blue=static  red=dynamic"), (8, 17), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                     (255, 255, 255), 1, cv2.LINE_AA)
         writer.write(cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         if t % 2 == 0:
             gif.append(cv2.resize(img, (vw // 2, vh // 2)))
     writer.release()
-    imageio.mimsave(OUT / "trajectories_overlay.gif", gif, duration=2000 / args.fps, loop=0)
-    print("wrote", OUT / "trajectories_overlay.mp4")
+    imageio.mimsave(OUT / f"{name}.gif", gif, duration=2000 / args.fps, loop=0)
+    print("wrote", OUT / f"{name}.mp4")

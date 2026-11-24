@@ -148,7 +148,7 @@ background, but assumes something moves in every window, which fails on mostly s
 |---|---|
 | `labels.npz` | Per window: `moving_KK` (bool per track, indexed like that window's tracks) and `drift_comp_KK` or `motion_score_KK`. Stitched: `dynamic_per_frame [G,F]`, the label from the window that supplies each frame. Also `thr`, `motion_rank` |
 | `summary.json` | Threshold used in each window and dynamic counts before/after |
-| `trajectories_overlay.mp4/.gif` | Trails: red = dynamic, blue = static at that frame (skip with `--no-video`) |
+| `trajectories_overlay.mp4/.gif` | Trails: red = dynamic, blue = static at that frame (skip with `--no-video`). With `--dynamic-only`: `trajectories_overlay_dynamic.mp4/.gif`, red trails only |
 
 ### Options
 
@@ -156,11 +156,12 @@ background, but assumes something moves in every window, which fails on mostly s
 |---|---|---|
 | `--run` | required | Output folder of `track_recording.py` |
 | `--frames` / `--glob` | required / `frame_*.png` | Frames, for the overlay video |
-| `--thr T` | — | Drift method with threshold T (give this or `--motion-rank`) |
+| `--thr T` (or `--drift T`) | — | Drift method with threshold T (give this or `--motion-rank`) |
 | `--mad-k k` | off | Drift only: per-window threshold |
 | `--trim` | 0.6 | Drift only: share of points kept in each fit round |
 | `--motion-rank PCT` | — | Motion-rank method: top (100 − PCT)% per window are dynamic |
 | `--fps` | 6 | Overlay video frame rate |
+| `--dynamic-only` | off | Draw only dynamic tracks; writes `trajectories_overlay_dynamic.mp4/.gif` instead |
 | `--no-video` | off | Skip the overlay video |
 
 ## Examples
